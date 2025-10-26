@@ -56,7 +56,7 @@ class TelegramNotifier:
     """Telegram notifications for trading signals"""
     
     def __init__(self):
-        self.bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        self.bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "8294375530:AAGpvxGD54ejEt9LXlZejQV8ZxtMxnXb0R8")
         self.chat_id = os.getenv("TELEGRAM_CHAT_ID")
     
     def send_message(self, message, parse_mode="Markdown"):
