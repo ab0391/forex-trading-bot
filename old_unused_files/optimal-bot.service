@@ -1,0 +1,16 @@
+[Unit]
+Description=Option A Optimal Trading Bot - 6 Pairs H4 Strategy
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/fxbot
+Environment=PYTHONPATH=/home/ubuntu/fxbot
+Environment=TWELVEDATA_API_KEY=d0b9148c9634439bba31a2b9fd753c2a
+ExecStart=/bin/bash -c 'cd /home/ubuntu/fxbot && source .venv/bin/activate && python option_a_optimal_bot.py'
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

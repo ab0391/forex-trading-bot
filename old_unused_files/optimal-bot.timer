@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Option A Optimal Bot every hour
+
+[Timer]
+OnBootSec=5min
+OnCalendar=*-*-* *:10:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

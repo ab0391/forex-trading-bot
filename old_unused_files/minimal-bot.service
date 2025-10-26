@@ -1,0 +1,15 @@
+[Unit]
+Description=Minimal Bulletproof Trading Bot
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/fxbot
+Environment=PYTHONPATH=/home/ubuntu/fxbot
+ExecStart=/bin/bash -c 'cd /home/ubuntu/fxbot && source .venv/bin/activate && python minimal_bulletproof_bot.py'
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

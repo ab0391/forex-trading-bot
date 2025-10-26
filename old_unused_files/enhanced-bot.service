@@ -1,0 +1,16 @@
+[Unit]
+Description=Enhanced Multi-Pair Trading Bot
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/fxbot
+Environment=PYTHONPATH=/home/ubuntu/fxbot
+Environment=TWELVEDATA_API_KEY=d0b9148c9634439bba31a2b9fd753c2a
+ExecStart=/bin/bash -c 'cd /home/ubuntu/fxbot && source .venv/bin/activate && python enhanced_multi_pair_bot.py'
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

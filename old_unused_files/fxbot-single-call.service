@@ -1,0 +1,15 @@
+[Unit]
+Description=FX Trading Bot Single Call (1 API call per scan)
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/fxbot
+ExecStart=/usr/bin/python3 /home/ubuntu/fxbot/single_call_trading_bot.py
+Environment=PATH=/usr/bin:/bin
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Enhanced Multi-Pair Bot every hour
+
+[Timer]
+OnBootSec=5min
+OnCalendar=*-*-* *:05:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run FX Bot Single Call every 60 minutes
+Requires=fxbot-single-call.service
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=60min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
