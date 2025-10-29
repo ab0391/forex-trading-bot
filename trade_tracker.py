@@ -213,7 +213,12 @@ class TradeTracker:
         """Save closed trades to history"""
         try:
             with open(self.trade_history_file, 'r') as f:
-                history = json.load(f)
+                data = json.load(f)
+                # Handle both old dict format and new list format
+                if isinstance(data, dict):
+                    history = data.get('completed_trades', [])
+                else:
+                    history = data
         except:
             history = []
         

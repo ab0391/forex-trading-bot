@@ -43,6 +43,24 @@ except ImportError:
     TRADE_TRACKER_AVAILABLE = False
     logger.error("❌ Trade Tracker not available")
 
+# Import Daily Summary System
+try:
+    from daily_summary_system import DailySummarySystem
+    DAILY_SUMMARY_AVAILABLE = True
+    logger.info("✅ Daily Summary System loaded!")
+except ImportError:
+    DAILY_SUMMARY_AVAILABLE = False
+    logger.error("❌ Daily Summary System not available")
+
+# Import Rate-Limited Data Fetcher
+try:
+    from rate_limited_data_fetcher import RateLimitedDataFetcher
+    RATE_LIMITED_FETCHER_AVAILABLE = True
+    logger.info("✅ Rate-Limited Data Fetcher loaded - Railway optimized!")
+except ImportError:
+    RATE_LIMITED_FETCHER_AVAILABLE = False
+    logger.error("❌ Rate-Limited Data Fetcher not available")
+
 # Import Dynamic R:R Optimizer
 try:
     from dynamic_rr_optimizer import DynamicRROptimizer
@@ -122,9 +140,17 @@ class TelegramNotifier:
             return False
 
 class YahooDataFetcher:
-    """Fetch data from Yahoo Finance - NO RATE LIMITS!"""
+    """Fetch data from Yahoo Finance with rate limiting for Railway deployment"""
     
     def __init__(self):
+        # Use rate-limited fetcher if available, otherwise fallback to basic
+        if RATE_LIMITED_FETCHER_AVAILABLE:
+            self.fetcher = RateLimitedDataFetcher(base_delay=2.0, max_delay=10.0)
+            logger.info("✅ Using Rate-Limited Data Fetcher for Railway deployment")
+        else:
+            self.fetcher = None
+            logger.warning("⚠️ Using basic data fetcher - may hit rate limits on Railway")
+        
         self.symbol_mapping = {
             # Forex pairs
             "EUR/USD": "EURUSD=X",
@@ -153,7 +179,18 @@ class YahooDataFetcher:
         }
     
     def get_current_price(self, symbol):
-        """Get current price from Yahoo Finance"""
+        """Get current price from Yahoo Finance with rate limiting"""
+        # Use rate-limited fetcher if available
+        if self.fetcher:
+            price = self.fetcher.get_current_price(symbol)
+            if price:
+                logger.info(f"✅ Yahoo Finance: {symbol} = {price:.5f} (RATE LIMITED)")
+                return price
+            else:
+                logger.warning(f"⚠️ No price data for {symbol}")
+                return None
+        
+        # Fallback to basic method
         try:
             yahoo_symbol = self.symbol_mapping.get(symbol, f"{symbol.replace('/', '')}=X")
             ticker = yf.Ticker(yahoo_symbol)
@@ -183,7 +220,18 @@ class YahooDataFetcher:
             return None
     
     def get_historical_data(self, symbol, period="1mo"):
-        """Get historical data for analysis"""
+        """Get historical data for analysis with rate limiting"""
+        # Use rate-limited fetcher if available
+        if self.fetcher:
+            data = self.fetcher.get_historical_data(symbol, period=period, interval="1h")
+            if data is not None and not data.empty:
+                logger.info(f"✅ Historical data: {symbol} ({len(data)} candles) (RATE LIMITED)")
+                return data
+            else:
+                logger.warning(f"⚠️ No historical data for {symbol}")
+                return None
+        
+        # Fallback to basic method
         try:
             yahoo_symbol = self.symbol_mapping.get(symbol, f"{symbol.replace('/', '')}=X")
             ticker = yf.Ticker(yahoo_symbol)
@@ -371,6 +419,19 @@ class YahooTradingBot:
         else:
             self.rr_optimizer = None
             logger.warning("⚠️ Dynamic R:R not available - Using fixed 2:1 ratio")
+        
+        # Initialize daily summary system
+        if DAILY_SUMMARY_AVAILABLE:
+            try:
+                from config import FOREX_TELEGRAM_BOT_TOKEN, FOREX_TELEGRAM_CHAT_ID
+                self.daily_summary = DailySummarySystem(FOREX_TELEGRAM_BOT_TOKEN, FOREX_TELEGRAM_CHAT_ID)
+                logger.info("✅ Daily Summary System initialized - 9 PM Dubai summaries enabled")
+            except Exception as e:
+                self.daily_summary = None
+                logger.warning(f"⚠️ Daily Summary not available: {e}")
+        else:
+            self.daily_summary = None
+            logger.warning("⚠️ Daily Summary not available")
         
         # EXPANDED PAIRS LIST - NO RATE LIMITS!
         self.all_symbols = [
@@ -641,6 +702,12 @@ def main():
                 bot.trade_tracker.cleanup_expired_cooldowns()
             
             bot.run_scan_cycle()
+            
+            # Check for daily summary (9 PM Dubai)
+            if bot.daily_summary and bot.daily_summary.should_send_forex_summary():
+                logger.info("📊 Sending daily forex summary...")
+                summary = bot.daily_summary.get_forex_daily_summary()
+                bot.daily_summary.send_telegram_message(summary)
             
             # Wait 15 minutes between scans (faster with no rate limits!)
             logger.info("⏰ Waiting 15 minutes until next scan...")

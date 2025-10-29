@@ -22,6 +22,20 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Import daily summary system
+try:
+    from daily_summary_system import DailySummarySystem
+    DAILY_SUMMARY_AVAILABLE = True
+except ImportError:
+    DAILY_SUMMARY_AVAILABLE = False
+
+# Import rate-limited data fetcher
+try:
+    from rate_limited_data_fetcher import RateLimitedDataFetcher
+    RATE_LIMITED_FETCHER_AVAILABLE = True
+except ImportError:
+    RATE_LIMITED_FETCHER_AVAILABLE = False
+
 class EnhancedORBStockTradingBot:
     def __init__(self):
         # Telegram configuration
@@ -67,6 +81,26 @@ class EnhancedORBStockTradingBot:
         # Load existing data
         self.load_trades_data()
         
+        # Initialize daily summary system
+        if DAILY_SUMMARY_AVAILABLE:
+            try:
+                self.daily_summary = DailySummarySystem(self.telegram_token, self.telegram_chat_id)
+                print("✅ Daily Summary System initialized - Market close notifications enabled")
+            except Exception as e:
+                self.daily_summary = None
+                print(f"⚠️ Daily Summary not available: {e}")
+        else:
+            self.daily_summary = None
+            print("⚠️ Daily Summary not available")
+        
+        # Initialize rate-limited data fetcher
+        if RATE_LIMITED_FETCHER_AVAILABLE:
+            self.data_fetcher = RateLimitedDataFetcher(base_delay=3.0, max_delay=15.0)
+            print("✅ Rate-Limited Data Fetcher initialized - Railway optimized")
+        else:
+            self.data_fetcher = None
+            print("⚠️ Rate-Limited Data Fetcher not available")
+        
         print("📈 Enhanced ORB Stock Trading Bot initialized")
         print(f"🇺🇸 US Stocks: {', '.join(self.us_stocks)}")
         print(f"🇬🇧 UK Stocks: {', '.join(self.uk_stocks)}")
@@ -106,7 +140,15 @@ class EnhancedORBStockTradingBot:
             print(f"⚠️ Error saving trades data: {e}")
 
     def get_stock_data(self, symbol, period="1d", interval="5m"):
-        """Get stock data from Yahoo Finance"""
+        """Get stock data from Yahoo Finance with rate limiting"""
+        # Use rate-limited fetcher if available
+        if self.data_fetcher:
+            data = self.data_fetcher.get_historical_data(symbol, period=period, interval=interval)
+            if data is not None and not data.empty:
+                return data
+            return None
+        
+        # Fallback to basic method
         try:
             ticker = yf.Ticker(symbol)
             data = ticker.history(period=period, interval=interval)
@@ -810,6 +852,18 @@ class EnhancedORBStockTradingBot:
                                     print(f"✅ {message}: {result}")
                                 else:
                                     print(f"❌ Trade failed: {result}")
+                
+                # Check for market close notifications
+                if self.daily_summary:
+                    if self.daily_summary.should_send_uk_close_notification():
+                        print("🇬🇧 Sending UK market close notification...")
+                        uk_summary = self.daily_summary.get_stock_uk_market_close_summary()
+                        self.daily_summary.send_telegram_message(uk_summary)
+                    
+                    if self.daily_summary.should_send_us_close_notification():
+                        print("🇺🇸 Sending US market close notification...")
+                        us_summary = self.daily_summary.get_stock_us_market_close_summary()
+                        self.daily_summary.send_telegram_message(us_summary)
                 
                 # Close all positions before market close
                 dubai_time = datetime.now(self.dubai_tz)
