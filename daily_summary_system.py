@@ -20,6 +20,8 @@ class DailySummarySystem:
         self.telegram_token = telegram_token
         self.chat_id = chat_id
         self.dubai_tz = pytz.timezone('Asia/Dubai')
+        self.london_tz = pytz.timezone('Europe/London')
+        self.ny_tz = pytz.timezone('America/New_York')
         
     def send_telegram_message(self, message: str):
         """Send message via Telegram"""
@@ -130,13 +132,17 @@ class DailySummarySystem:
             # Filter UK trades
             uk_trades = [t for t in active_trades if t.get('market') == 'UK']
             
+            ldn_now = datetime.now(self.london_tz)
+            uk_close_ldn = ldn_now.replace(hour=16, minute=30, second=0, microsecond=0)
+            uk_close_dxb = uk_close_ldn.astimezone(self.dubai_tz)
+
             summary = f"""
 🇬🇧 <b>UK STOCK MARKET CLOSE NOTIFICATION</b>
 🕐 Time: {datetime.now(self.dubai_tz).strftime('%H:%M:%S')} Dubai
 📅 Date: {datetime.now(self.dubai_tz).strftime('%Y-%m-%d')}
 
 ⚠️ <b>UK MARKET CLOSES IN 15 MINUTES!</b>
-⏰ Close Time: 4:30 PM Dubai (12:00 PM London)
+⏰ Close Time: {uk_close_dxb.strftime('%H:%M')} Dubai ({uk_close_ldn.strftime('%H:%M')} London)
 
 📈 <b>ACTIVE UK TRADES ({len(uk_trades)})</b>
 """
@@ -173,13 +179,17 @@ class DailySummarySystem:
             # Filter US trades
             us_trades = [t for t in active_trades if t.get('market') == 'US']
             
+            ny_now = datetime.now(self.ny_tz)
+            us_close_ny = ny_now.replace(hour=16, minute=0, second=0, microsecond=0)
+            us_close_dxb = us_close_ny.astimezone(self.dubai_tz)
+
             summary = f"""
 🇺🇸 <b>US STOCK MARKET CLOSE NOTIFICATION</b>
 🕐 Time: {datetime.now(self.dubai_tz).strftime('%H:%M:%S')} Dubai
 📅 Date: {datetime.now(self.dubai_tz).strftime('%Y-%m-%d')}
 
 ⚠️ <b>US MARKET CLOSES IN 15 MINUTES!</b>
-⏰ Close Time: 1:00 AM Dubai (4:00 PM EST)
+⏰ Close Time: {us_close_dxb.strftime('%H:%M')} Dubai ({us_close_ny.strftime('%H:%M')} New York)
 
 📈 <b>ACTIVE US TRADES ({len(us_trades)})</b>
 """
@@ -208,14 +218,14 @@ class DailySummarySystem:
         return now.hour == 21 and now.minute == 0  # 9:00 PM Dubai
     
     def should_send_uk_close_notification(self) -> bool:
-        """Check if it's time to send UK close notification (4:15 PM Dubai)"""
-        now = datetime.now(self.dubai_tz)
-        return now.hour == 16 and now.minute == 15  # 4:15 PM Dubai
+        """Check 15 minutes before UK close using London local time (DST-aware)"""
+        now_ldn = datetime.now(self.london_tz)
+        return now_ldn.hour == 16 and now_ldn.minute == 15
     
     def should_send_us_close_notification(self) -> bool:
-        """Check if it's time to send US close notification (12:45 AM Dubai)"""
-        now = datetime.now(self.dubai_tz)
-        return now.hour == 0 and now.minute == 45  # 12:45 AM Dubai
+        """Check 15 minutes before US close using New York local time (DST-aware)"""
+        now_ny = datetime.now(self.ny_tz)
+        return now_ny.hour == 15 and now_ny.minute == 45
 
 def main():
     """Test the daily summary system"""
