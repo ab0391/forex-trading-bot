@@ -44,13 +44,21 @@ class DailySummarySystem:
     def get_forex_daily_summary(self) -> str:
         """Generate forex bot daily summary"""
         try:
-            # Load active trades
-            with open('active_trades.json', 'r') as f:
-                active_trades = json.load(f)
+            # Load active trades (gracefully handle missing file)
+            try:
+                with open('active_trades.json', 'r') as f:
+                    active_trades = json.load(f)
+            except FileNotFoundError:
+                logger.warning("⚠️ active_trades.json not found - treating as no active trades")
+                active_trades = []
             
-            # Load completed trades from today
-            with open('trade_history.json', 'r') as f:
-                history_data = json.load(f)
+            # Load completed trades from today (gracefully handle missing file)
+            try:
+                with open('trade_history.json', 'r') as f:
+                    history_data = json.load(f)
+            except FileNotFoundError:
+                logger.warning("⚠️ trade_history.json not found - treating as no completed trades")
+                history_data = []
             
             # Handle both dict and list formats
             if isinstance(history_data, dict):
@@ -111,9 +119,13 @@ class DailySummarySystem:
     def get_stock_uk_market_close_summary(self) -> str:
         """Generate UK market close summary for stock bot"""
         try:
-            # Load active stock trades
-            with open('active_trades.json', 'r') as f:
-                active_trades = json.load(f)
+            # Load active stock trades (gracefully handle missing file)
+            try:
+                with open('active_trades.json', 'r') as f:
+                    active_trades = json.load(f)
+            except FileNotFoundError:
+                logger.warning("⚠️ active_trades.json not found - treating as no active trades")
+                active_trades = []
             
             # Filter UK trades
             uk_trades = [t for t in active_trades if t.get('market') == 'UK']
@@ -150,9 +162,13 @@ class DailySummarySystem:
     def get_stock_us_market_close_summary(self) -> str:
         """Generate US market close summary for stock bot"""
         try:
-            # Load active stock trades
-            with open('active_trades.json', 'r') as f:
-                active_trades = json.load(f)
+            # Load active stock trades (gracefully handle missing file)
+            try:
+                with open('active_trades.json', 'r') as f:
+                    active_trades = json.load(f)
+            except FileNotFoundError:
+                logger.warning("⚠️ active_trades.json not found - treating as no active trades")
+                active_trades = []
             
             # Filter US trades
             us_trades = [t for t in active_trades if t.get('market') == 'US']
