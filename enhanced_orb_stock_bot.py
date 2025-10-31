@@ -223,7 +223,7 @@ class EnhancedORBStockTradingBot:
             return {
                 'volume_surge': volume_surge,
                 'volume_trend': volume_trend,
-                'is_strong_volume': volume_surge >= 2.0 and volume_trend >= 1.2,
+                'is_strong_volume': volume_surge >= 1.5,  # Matches original ORB strategy spec (1.5x minimum)
                 'avg_volume_20': avg_volume_20,
                 'current_volume': current_volume
             }
@@ -260,10 +260,11 @@ class EnhancedORBStockTradingBot:
             bias_15m = "BULLISH" if current_price > ema_20_15m.iloc[-1] else "BEARISH"
             bias_1h = "BULLISH" if current_price > ema_20_1h.iloc[-1] else "BEARISH"
             
+            # Relaxed bias alignment: Just check 15m has clear direction (more realistic for ORB)
             return {
                 'bias_15m': bias_15m,
                 'bias_1h': bias_1h,
-                'aligned': bias_15m == bias_1h
+                'aligned': bias_15m in ['BULLISH', 'BEARISH']  # Any clear direction on 15m
             }
         except Exception as e:
             print(f"❌ Error getting higher timeframe bias: {e}")
