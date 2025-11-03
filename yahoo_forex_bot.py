@@ -703,6 +703,12 @@ def main():
             
             bot.run_scan_cycle()
             
+            # Check for forex open trades summary (8:30 PM Dubai)
+            if bot.daily_summary and bot.daily_summary.should_send_forex_open_trades_summary():
+                logger.info("📊 Sending forex open trades summary...")
+                summary = bot.daily_summary.get_forex_open_trades_summary()
+                bot.daily_summary.send_telegram_message(summary)
+            
             # Check for daily summary (9 PM Dubai)
             if bot.daily_summary and bot.daily_summary.should_send_forex_summary():
                 logger.info("📊 Sending daily forex summary...")

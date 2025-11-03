@@ -6,4 +6,5 @@ python-dotenv==1.0.0
 flask==3.0.0
 pytz==2023.3
 urllib3>=1.26.0
+pandas-market-calendars>=4.0.0
 

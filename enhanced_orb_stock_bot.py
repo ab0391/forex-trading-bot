@@ -856,6 +856,12 @@ class EnhancedORBStockTradingBot:
                 
                 # Check for market close notifications
                 if self.daily_summary:
+                    # Check for holiday notification (9 AM Dubai)
+                    if self.daily_summary.should_send_holiday_notification():
+                        print("🏖️ Sending market holiday notification...")
+                        holiday_msg = self.daily_summary.get_holiday_notification()
+                        self.daily_summary.send_telegram_message(holiday_msg)
+                    
                     if self.daily_summary.should_send_uk_close_notification():
                         print("🇬🇧 Sending UK market close notification...")
                         uk_summary = self.daily_summary.get_stock_uk_market_close_summary()

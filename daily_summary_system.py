@@ -7,9 +7,10 @@ Provides end-of-day summaries and market close notifications
 import json
 import logging
 import requests
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 import pytz
 from typing import List, Dict, Any
+import pandas_market_calendars as mcal
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -22,6 +23,16 @@ class DailySummarySystem:
         self.dubai_tz = pytz.timezone('Asia/Dubai')
         self.london_tz = pytz.timezone('Europe/London')
         self.ny_tz = pytz.timezone('America/New_York')
+        
+        # Initialize market calendars for holiday detection
+        try:
+            self.nyse = mcal.get_calendar('NYSE')
+            self.lse = mcal.get_calendar('LSE')
+            logger.info("✅ Market calendars loaded (NYSE, LSE)")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load market calendars: {e}")
+            self.nyse = None
+            self.lse = None
         
     def send_telegram_message(self, message: str):
         """Send message via Telegram"""
@@ -212,6 +223,86 @@ class DailySummarySystem:
             logger.error(f"❌ Error generating US summary: {e}")
             return f"❌ Error generating US summary: {e}"
     
+    def is_uk_trading_day(self) -> bool:
+        """Check if UK market is open today (not weekend or holiday)"""
+        try:
+            if not self.lse:
+                # Fallback to weekend check only
+                now_ldn = datetime.now(self.london_tz)
+                return now_ldn.weekday() < 5
+            
+            # Get today's date in London timezone
+            now_ldn = datetime.now(self.london_tz)
+            today = now_ldn.date()
+            
+            # Check if market is open today
+            schedule = self.lse.schedule(start_date=today, end_date=today)
+            return len(schedule) > 0
+            
+        except Exception as e:
+            logger.error(f"Error checking UK trading day: {e}")
+            # Fallback to weekend check
+            now_ldn = datetime.now(self.london_tz)
+            return now_ldn.weekday() < 5
+    
+    def is_us_trading_day(self) -> bool:
+        """Check if US market is open today (not weekend or holiday)"""
+        try:
+            if not self.nyse:
+                # Fallback to weekend check only
+                now_ny = datetime.now(self.ny_tz)
+                return now_ny.weekday() < 5
+            
+            # Get today's date in NY timezone
+            now_ny = datetime.now(self.ny_tz)
+            today = now_ny.date()
+            
+            # Check if market is open today
+            schedule = self.nyse.schedule(start_date=today, end_date=today)
+            return len(schedule) > 0
+            
+        except Exception as e:
+            logger.error(f"Error checking US trading day: {e}")
+            # Fallback to weekend check
+            now_ny = datetime.now(self.ny_tz)
+            return now_ny.weekday() < 5
+    
+    def get_next_uk_holiday(self) -> str:
+        """Get the next UK market holiday"""
+        try:
+            if not self.lse:
+                return "Unknown"
+            
+            now_ldn = datetime.now(self.london_tz)
+            # Check next 90 days
+            end_date = now_ldn + timedelta(days=90)
+            
+            holidays = self.lse.holidays().holidays
+            for holiday in holidays:
+                if holiday > now_ldn.date():
+                    return holiday.strftime('%Y-%m-%d')
+            return "None in next 90 days"
+        except:
+            return "Unknown"
+    
+    def get_next_us_holiday(self) -> str:
+        """Get the next US market holiday"""
+        try:
+            if not self.nyse:
+                return "Unknown"
+            
+            now_ny = datetime.now(self.ny_tz)
+            # Check next 90 days
+            end_date = now_ny + timedelta(days=90)
+            
+            holidays = self.nyse.holidays().holidays
+            for holiday in holidays:
+                if holiday > now_ny.date():
+                    return holiday.strftime('%Y-%m-%d')
+            return "None in next 90 days"
+        except:
+            return "Unknown"
+    
     def should_send_forex_summary(self) -> bool:
         """Check if it's time to send forex daily summary (9 PM Dubai)"""
         now = datetime.now(self.dubai_tz)
@@ -219,13 +310,176 @@ class DailySummarySystem:
     
     def should_send_uk_close_notification(self) -> bool:
         """Check 15 minutes before UK close using London local time (DST-aware)"""
+        # Check if it's a trading day first (blocks weekends and holidays)
+        if not self.is_uk_trading_day():
+            return False
+        
         now_ldn = datetime.now(self.london_tz)
         return now_ldn.hour == 16 and now_ldn.minute == 15
     
     def should_send_us_close_notification(self) -> bool:
         """Check 15 minutes before US close using New York local time (DST-aware)"""
+        # Check if it's a trading day first (blocks weekends and holidays)
+        if not self.is_us_trading_day():
+            return False
+        
         now_ny = datetime.now(self.ny_tz)
         return now_ny.hour == 15 and now_ny.minute == 45
+    
+    def should_send_holiday_notification(self) -> bool:
+        """Send holiday notification at 9 AM Dubai if market is closed"""
+        now_dubai = datetime.now(self.dubai_tz)
+        
+        # Only send at 9:00 AM Dubai
+        if now_dubai.hour != 9 or now_dubai.minute != 0:
+            return False
+        
+        # Check if either market is closed for holiday/weekend
+        uk_closed = not self.is_uk_trading_day()
+        us_closed = not self.is_us_trading_day()
+        
+        return uk_closed or us_closed
+    
+    def get_holiday_notification(self) -> str:
+        """Generate holiday notification message"""
+        try:
+            uk_trading = self.is_uk_trading_day()
+            us_trading = self.is_us_trading_day()
+            
+            now_dubai = datetime.now(self.dubai_tz)
+            
+            summary = f"""
+🏖️ <b>MARKET HOLIDAY NOTIFICATION</b>
+📅 Date: {now_dubai.strftime('%Y-%m-%d')}
+🕐 Time: {now_dubai.strftime('%H:%M')} Dubai
+
+"""
+            
+            if not uk_trading:
+                summary += "🇬🇧 <b>UK MARKET CLOSED</b> - Weekend/Holiday\n"
+                next_uk = self.get_next_uk_holiday()
+                summary += f"   Next UK holiday: {next_uk}\n\n"
+            else:
+                summary += "🇬🇧 UK Market: ✅ OPEN\n\n"
+            
+            if not us_trading:
+                summary += "🇺🇸 <b>US MARKET CLOSED</b> - Weekend/Holiday\n"
+                next_us = self.get_next_us_holiday()
+                summary += f"   Next US holiday: {next_us}\n\n"
+            else:
+                summary += "🇺🇸 US Market: ✅ OPEN\n\n"
+            
+            summary += "💡 No stock trading signals will be sent today for closed markets."
+            
+            return summary
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating holiday notification: {e}")
+            return f"❌ Error generating holiday notification: {e}"
+    
+    def should_send_forex_open_trades_summary(self) -> bool:
+        """Check if it's time to send forex open trades summary (8:30 PM Dubai)"""
+        now = datetime.now(self.dubai_tz)
+        return now.hour == 20 and now.minute == 30
+    
+    def get_forex_open_trades_summary(self) -> str:
+        """Generate detailed forex open trades summary with current status"""
+        try:
+            # Load active trades
+            try:
+                with open('active_trades.json', 'r') as f:
+                    active_trades = json.load(f)
+            except FileNotFoundError:
+                logger.warning("⚠️ active_trades.json not found")
+                active_trades = []
+            
+            if not active_trades:
+                return f"""
+📊 <b>FOREX OPEN TRADES SUMMARY</b>
+🕐 Time: {datetime.now(self.dubai_tz).strftime('%H:%M:%S')} Dubai
+📅 Date: {datetime.now(self.dubai_tz).strftime('%Y-%m-%d')}
+
+No open trades currently.
+"""
+            
+            # Import for price fetching
+            from rate_limited_data_fetcher import RateLimitedDataFetcher
+            fetcher = RateLimitedDataFetcher(base_delay=1.0)
+            
+            summary = f"""
+📊 <b>FOREX OPEN TRADES SUMMARY</b>
+🕐 Time: {datetime.now(self.dubai_tz).strftime('%H:%M:%S')} Dubai
+📅 Date: {datetime.now(self.dubai_tz).strftime('%Y-%m-%d')}
+
+💼 <b>Active Positions: {len(active_trades)}</b>
+
+"""
+            
+            for trade in active_trades:
+                symbol = trade['symbol']
+                direction = trade['direction']
+                entry = float(trade['entry'])
+                stop = float(trade['stop'])
+                target = float(trade['target'])
+                
+                # Get current price
+                current_price = fetcher.get_current_price(symbol)
+                if not current_price:
+                    current_price = entry  # Fallback
+                
+                # Calculate progress
+                if direction == 'LONG':
+                    total_distance = target - entry
+                    current_progress = current_price - entry
+                else:  # SHORT
+                    total_distance = entry - target
+                    current_progress = entry - current_price
+                
+                # Calculate percentage to target
+                progress_pct = (current_progress / total_distance * 100) if total_distance != 0 else 0
+                progress_pct = max(0, min(100, progress_pct))  # Clamp between 0-100
+                
+                # Calculate P&L
+                if direction == 'LONG':
+                    pnl_pips = current_price - entry
+                else:
+                    pnl_pips = entry - current_price
+                
+                # Grade the trade
+                if progress_pct >= 80:
+                    grade = "🟢 EXCELLENT"
+                elif progress_pct >= 50:
+                    grade = "🟡 GOOD"
+                elif progress_pct >= 20:
+                    grade = "🟠 MODERATE"
+                elif progress_pct > 0:
+                    grade = "🔵 EARLY"
+                else:
+                    grade = "🔴 LOSING"
+                
+                direction_emoji = "🟢" if direction == 'LONG' else "🔴"
+                
+                summary += f"""
+━━━━━━━━━━━━━━━━━━━━━━
+{direction_emoji} <b>{symbol}</b> - {direction}
+Entry: {entry:.5f}
+Current: {current_price:.5f}
+Stop Loss: {stop:.5f}
+Take Profit: {target:.5f}
+P&L: {pnl_pips:+.5f} pips
+Progress: {progress_pct:.1f}% to target
+Status: {grade}
+
+"""
+            
+            summary += """━━━━━━━━━━━━━━━━━━━━━━
+💡 Check your MT5 to verify these trades match your actual open positions."""
+            
+            return summary
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating forex open trades summary: {e}")
+            return f"❌ Error generating forex open trades summary: {e}"
 
 def main():
     """Test the daily summary system"""
