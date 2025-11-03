@@ -434,10 +434,10 @@ class EnhancedORBStockTradingBot:
                 'volume_surge': volume_analysis['volume_surge'] >= 1.5
             }
             
-            # Require at least 3 out of 4 confirmations
+            # Require at least 2 out of 4 confirmations (optimal for manual trading)
             confirmation_count = sum(confirmations.values())
             
-            if confirmation_count >= 3:
+            if confirmation_count >= 2:
                 # Calculate enhanced targets based on market condition
                 if breakout_direction == 'LONG':
                     entry_price = orh + 0.05
@@ -471,7 +471,7 @@ class EnhancedORBStockTradingBot:
                     'bias_analysis': bias_analysis
                 }, f"Enhanced entry confirmed: {market_condition} market, {target_rr}:1 R:R"
             
-            return None, f"Entry conditions not met ({confirmation_count}/4 confirmations)"
+            return None, f"Entry conditions not met ({confirmation_count}/4 confirmations, need ≥2)"
             
         except Exception as e:
             print(f"❌ Error in enhanced entry conditions: {e}")
