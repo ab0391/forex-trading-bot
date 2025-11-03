@@ -867,8 +867,15 @@ class EnhancedORBStockTradingBot:
                         uk_summary = self.daily_summary.get_stock_uk_market_close_summary()
                         self.daily_summary.send_telegram_message(uk_summary)
                     
+                    # US early warning (10 PM Dubai - before bed)
+                    if self.daily_summary.should_send_us_early_warning():
+                        print("🇺🇸 Sending US early warning (10 PM)...")
+                        us_early = self.daily_summary.get_stock_us_early_warning()
+                        self.daily_summary.send_telegram_message(us_early)
+                    
+                    # US final warning (12:45 AM Dubai - 15 min before close)
                     if self.daily_summary.should_send_us_close_notification():
-                        print("🇺🇸 Sending US market close notification...")
+                        print("🇺🇸 Sending US final close warning (12:45 AM)...")
                         us_summary = self.daily_summary.get_stock_us_market_close_summary()
                         self.daily_summary.send_telegram_message(us_summary)
                 
@@ -882,14 +889,14 @@ class EnhancedORBStockTradingBot:
                             current_price = float(data['Close'].iloc[-1])
                             self.close_trade(trade_id, current_price, "End of Day Close")
                 
-                time.sleep(60)  # Check every minute during market hours
+                time.sleep(180)  # Check every 3 minutes (prevents Yahoo Finance rate limiting)
                 
             except KeyboardInterrupt:
                 print("\n🛑 Bot stopped by user")
                 break
             except Exception as e:
                 print(f"❌ Error in main loop: {e}")
-                time.sleep(60)
+                time.sleep(180)
 
 if __name__ == "__main__":
     bot = EnhancedORBStockTradingBot()

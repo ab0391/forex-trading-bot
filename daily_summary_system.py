@@ -176,8 +176,58 @@ class DailySummarySystem:
             logger.error(f"❌ Error generating UK summary: {e}")
             return f"❌ Error generating UK summary: {e}"
     
+    def get_stock_us_early_warning(self) -> str:
+        """Generate US early close warning for stock bot (10 PM Dubai)"""
+        try:
+            # Load active stock trades (gracefully handle missing file)
+            try:
+                with open('active_trades.json', 'r') as f:
+                    active_trades = json.load(f)
+            except FileNotFoundError:
+                logger.warning("⚠️ active_trades.json not found - treating as no active trades")
+                active_trades = []
+            
+            # Filter US trades
+            us_trades = [t for t in active_trades if t.get('market') == 'US']
+            
+            ny_now = datetime.now(self.ny_tz)
+            us_close_ny = ny_now.replace(hour=16, minute=0, second=0, microsecond=0)
+            us_close_dxb = us_close_ny.astimezone(self.dubai_tz)
+            time_to_close = us_close_dxb - datetime.now(self.dubai_tz)
+            hours_to_close = time_to_close.total_seconds() / 3600
+
+            summary = f"""
+🇺🇸 <b>US MARKET EARLY WARNING</b>
+🕐 Time: {datetime.now(self.dubai_tz).strftime('%H:%M:%S')} Dubai
+📅 Date: {datetime.now(self.dubai_tz).strftime('%Y-%m-%d')}
+
+⏰ <b>US MARKET CLOSES IN {hours_to_close:.1f} HOURS</b>
+⏰ Close Time: {us_close_dxb.strftime('%H:%M')} Dubai ({us_close_ny.strftime('%H:%M')} New York)
+
+📈 <b>ACTIVE US TRADES ({len(us_trades)})</b>
+"""
+            
+            if us_trades:
+                summary += "Review these positions before bed:\n\n"
+                for trade in us_trades:
+                    direction_emoji = "🟢" if trade['direction'] == 'LONG' else "🔴"
+                    summary += f"{direction_emoji} <b>{trade['symbol']}</b> {trade['direction']}\n"
+                    summary += f"   Entry: {trade['entry']} | Stop: {trade['stop']} | Target: {trade['target']}\n"
+                    summary += f"   R:R: {trade['risk_reward']:.1f}:1\n\n"
+            else:
+                summary += "No active US trades\n"
+            
+            summary += "💡 <b>EARLY WARNING:</b> Consider your exit strategy before going to bed.\n"
+            summary += "⏰ Final reminder will be sent at 12:45 AM Dubai (15 min before close)."
+            
+            return summary
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating US early warning: {e}")
+            return f"❌ Error generating US early warning: {e}"
+    
     def get_stock_us_market_close_summary(self) -> str:
-        """Generate US market close summary for stock bot"""
+        """Generate US market close summary for stock bot (final warning)"""
         try:
             # Load active stock trades (gracefully handle missing file)
             try:
@@ -195,18 +245,18 @@ class DailySummarySystem:
             us_close_dxb = us_close_ny.astimezone(self.dubai_tz)
 
             summary = f"""
-🇺🇸 <b>US STOCK MARKET CLOSE NOTIFICATION</b>
+🇺🇸 <b>US MARKET FINAL CLOSE WARNING</b>
 🕐 Time: {datetime.now(self.dubai_tz).strftime('%H:%M:%S')} Dubai
 📅 Date: {datetime.now(self.dubai_tz).strftime('%Y-%m-%d')}
 
-⚠️ <b>US MARKET CLOSES IN 15 MINUTES!</b>
+🚨 <b>US MARKET CLOSES IN 15 MINUTES!</b>
 ⏰ Close Time: {us_close_dxb.strftime('%H:%M')} Dubai ({us_close_ny.strftime('%H:%M')} New York)
 
 📈 <b>ACTIVE US TRADES ({len(us_trades)})</b>
 """
             
             if us_trades:
-                summary += "Consider closing these positions before market close:\n\n"
+                summary += "⚠️ FINAL CALL - Close these positions NOW:\n\n"
                 for trade in us_trades:
                     direction_emoji = "🟢" if trade['direction'] == 'LONG' else "🔴"
                     summary += f"{direction_emoji} <b>{trade['symbol']}</b> {trade['direction']}\n"
@@ -215,7 +265,7 @@ class DailySummarySystem:
             else:
                 summary += "No active US trades\n"
             
-            summary += "💡 <b>RECOMMENDATION:</b> Close all US positions before 1:00 AM Dubai to avoid overnight risk"
+            summary += "🚨 <b>CRITICAL:</b> Market closes in 15 minutes - Close positions immediately!"
             
             return summary
             
@@ -316,6 +366,15 @@ class DailySummarySystem:
         
         now_ldn = datetime.now(self.london_tz)
         return now_ldn.hour == 16 and now_ldn.minute == 15
+    
+    def should_send_us_early_warning(self) -> bool:
+        """Check for early US close warning (10 PM Dubai - user still awake)"""
+        # Check if it's a trading day first (blocks weekends and holidays)
+        if not self.is_us_trading_day():
+            return False
+        
+        now_dubai = datetime.now(self.dubai_tz)
+        return now_dubai.hour == 22 and now_dubai.minute == 0  # 10:00 PM Dubai
     
     def should_send_us_close_notification(self) -> bool:
         """Check 15 minutes before US close using New York local time (DST-aware)"""
