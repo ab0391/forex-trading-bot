@@ -437,9 +437,9 @@ class DailySummarySystem:
             return f"❌ Error generating holiday notification: {e}"
     
     def should_send_forex_open_trades_summary(self) -> bool:
-        """Check if it's time to send forex open trades summary (8:30 PM Dubai)"""
+        """Check if it's time to send forex open trades summary (8:30-8:45 PM Dubai window)"""
         now = datetime.now(self.dubai_tz)
-        return now.hour == 20 and now.minute == 30
+        return now.hour == 20 and 30 <= now.minute <= 45
     
     def get_forex_open_trades_summary(self) -> str:
         """Generate detailed forex open trades summary with current status"""
