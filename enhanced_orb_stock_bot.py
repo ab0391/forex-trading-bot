@@ -42,9 +42,15 @@ class EnhancedORBStockTradingBot:
         self.telegram_token = os.getenv('TELEGRAM_TOKEN', '8212205627:AAEpn-8ReZkBtoI4iHJbJxcHn8llSj2JtY4')
         self.telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')
         
-        # Trading configuration
-        self.us_stocks = ['AAPL', 'TSLA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'NFLX']
-        self.uk_stocks = ['LLOY.L', 'VOD.L', 'BARC.L', 'TSCO.L', 'BP.L', 'AZN.L', 'ULVR.L', 'SHEL.L']
+        # Trading configuration - Expanded to 12+12 for better opportunities
+        self.us_stocks = [
+            'AAPL', 'TSLA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'NFLX',  # Original 8
+            'AMD', 'UBER', 'COIN', 'DIS'  # Added 4 (high volatility ORB candidates)
+        ]
+        self.uk_stocks = [
+            'LLOY.L', 'VOD.L', 'BARC.L', 'TSCO.L', 'BP.L', 'AZN.L', 'ULVR.L', 'SHEL.L',  # Original 8
+            'HSBA.L', 'RIO.L', 'DGE.L', 'GSK.L'  # Added 4 (FTSE 100 high liquidity)
+        ]
         self.all_stocks = self.us_stocks + self.uk_stocks
         
         self.account_size = float(os.getenv('ACCOUNT_SIZE', '50000'))  # Default $50k
@@ -889,14 +895,14 @@ class EnhancedORBStockTradingBot:
                             current_price = float(data['Close'].iloc[-1])
                             self.close_trade(trade_id, current_price, "End of Day Close")
                 
-                time.sleep(180)  # Check every 3 minutes (prevents Yahoo Finance rate limiting)
+                time.sleep(240)  # Check every 4 minutes (safe rate limiting with 24 stocks)
                 
             except KeyboardInterrupt:
                 print("\n🛑 Bot stopped by user")
                 break
             except Exception as e:
                 print(f"❌ Error in main loop: {e}")
-                time.sleep(180)
+                time.sleep(240)
 
 if __name__ == "__main__":
     bot = EnhancedORBStockTradingBot()
