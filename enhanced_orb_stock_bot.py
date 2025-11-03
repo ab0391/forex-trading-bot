@@ -833,6 +833,20 @@ class EnhancedORBStockTradingBot:
                         if not is_open:
                             continue
                         
+                        # ORB Time Window Check: Only trade first 2.5 hours after opening range
+                        dubai_time = datetime.now(self.dubai_tz)
+                        
+                        if symbol in self.uk_stocks:
+                            # UK: 8:30 AM - 11:00 AM GMT (12:30 PM - 3:00 PM Dubai)
+                            cutoff_time = dubai_time.replace(hour=15, minute=0, second=0, microsecond=0)
+                            if dubai_time > cutoff_time:
+                                continue  # Past optimal ORB window
+                        else:  # US stocks
+                            # US: 10:00 AM - 12:30 PM EST (7:00 PM - 9:30 PM Dubai)
+                            cutoff_time = dubai_time.replace(hour=21, minute=30, second=0, microsecond=0)
+                            if dubai_time > cutoff_time:
+                                continue  # Past optimal ORB window
+                        
                         # Get current data
                         data = self.get_stock_data(symbol, period="1d", interval="1m")
                         if data is None or data.empty:
