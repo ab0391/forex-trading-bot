@@ -353,6 +353,66 @@ class DailySummarySystem:
         except:
             return "Unknown"
     
+    def should_send_uk_open_notification(self) -> bool:
+        """Check if it's time to send UK market open notification (12:00 PM Dubai)"""
+        if not self.is_uk_trading_day():
+            return False
+        
+        now_dubai = datetime.now(self.dubai_tz)
+        return now_dubai.hour == 12 and 0 <= now_dubai.minute <= 5
+    
+    def should_send_us_open_notification(self) -> bool:
+        """Check if it's time to send US market open notification (6:30 PM Dubai)"""
+        if not self.is_us_trading_day():
+            return False
+        
+        now_dubai = datetime.now(self.dubai_tz)
+        return now_dubai.hour == 18 and 30 <= now_dubai.minute <= 35
+    
+    def get_stock_uk_market_open_notification(self) -> str:
+        """Generate UK market open notification"""
+        now_dubai = datetime.now(self.dubai_tz)
+        now_london = datetime.now(self.london_tz)
+        
+        return f"""
+🇬🇧 <b>UK STOCK MARKET OPEN</b>
+🕐 Time: {now_dubai.strftime('%H:%M:%S')} Dubai ({now_london.strftime('%H:%M:%S')} London)
+📅 Date: {now_dubai.strftime('%Y-%m-%d')}
+
+✅ <b>UK MARKET IS NOW OPEN</b>
+
+📊 <b>Monitoring 12 UK Stocks:</b>
+LLOY.L, VOD.L, BARC.L, TSCO.L, BP.L, AZN.L, ULVR.L, SHEL.L, HSBA.L, RIO.L, DGE.L, GSK.L
+
+⏰ <b>ORB Strategy Active:</b>
+   Opening Range: 12:00-12:30 PM Dubai
+   Trading Window: 12:30-3:00 PM Dubai (2.5 hours)
+
+🔔 You'll receive ORB breakout signals if setups occur (2/4 confirmations required)
+"""
+    
+    def get_stock_us_market_open_notification(self) -> str:
+        """Generate US market open notification"""
+        now_dubai = datetime.now(self.dubai_tz)
+        now_ny = datetime.now(self.ny_tz)
+        
+        return f"""
+🇺🇸 <b>US STOCK MARKET OPEN</b>
+🕐 Time: {now_dubai.strftime('%H:%M:%S')} Dubai ({now_ny.strftime('%H:%M:%S')} New York)
+📅 Date: {now_dubai.strftime('%Y-%m-%d')}
+
+✅ <b>US MARKET IS NOW OPEN</b>
+
+📊 <b>Monitoring 12 US Stocks:</b>
+AAPL, TSLA, MSFT, GOOGL, AMZN, META, NVDA, NFLX, AMD, UBER, COIN, DIS
+
+⏰ <b>ORB Strategy Active:</b>
+   Opening Range: 6:30-7:00 PM Dubai
+   Trading Window: 7:00-9:30 PM Dubai (2.5 hours)
+
+🔔 You'll receive ORB breakout signals if setups occur (2/4 confirmations required)
+"""
+    
     def should_send_forex_summary(self) -> bool:
         """Check if it's time to send forex daily summary (9 PM Dubai)"""
         now = datetime.now(self.dubai_tz)

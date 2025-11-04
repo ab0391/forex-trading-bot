@@ -874,13 +874,25 @@ class EnhancedORBStockTradingBot:
                                 else:
                                     print(f"❌ Trade failed: {result}")
                 
-                # Check for market close notifications
+                # Check for market notifications
                 if self.daily_summary:
                     # Check for holiday notification (9 AM Dubai)
                     if self.daily_summary.should_send_holiday_notification():
                         print("🏖️ Sending market holiday notification...")
                         holiday_msg = self.daily_summary.get_holiday_notification()
                         self.daily_summary.send_telegram_message(holiday_msg)
+                    
+                    # UK market open notification (12:00 PM Dubai)
+                    if self.daily_summary.should_send_uk_open_notification():
+                        print("🇬🇧 Sending UK market open notification...")
+                        uk_open = self.daily_summary.get_stock_uk_market_open_notification()
+                        self.daily_summary.send_telegram_message(uk_open)
+                    
+                    # US market open notification (6:30 PM Dubai)
+                    if self.daily_summary.should_send_us_open_notification():
+                        print("🇺🇸 Sending US market open notification...")
+                        us_open = self.daily_summary.get_stock_us_market_open_notification()
+                        self.daily_summary.send_telegram_message(us_open)
                     
                     if self.daily_summary.should_send_uk_close_notification():
                         print("🇬🇧 Sending UK market close notification...")
