@@ -10,7 +10,14 @@ import requests
 from datetime import datetime, time, timedelta
 import pytz
 from typing import List, Dict, Any
-import pandas_market_calendars as mcal
+
+# Try to import market calendars, fallback to simple weekend check
+try:
+    import pandas_market_calendars as mcal
+    MARKET_CALENDARS_AVAILABLE = True
+except ImportError:
+    MARKET_CALENDARS_AVAILABLE = False
+    logging.warning("⚠️ pandas-market-calendars not available, using weekend-only checks")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -25,14 +32,19 @@ class DailySummarySystem:
         self.ny_tz = pytz.timezone('America/New_York')
         
         # Initialize market calendars for holiday detection
-        try:
-            self.nyse = mcal.get_calendar('NYSE')
-            self.lse = mcal.get_calendar('LSE')
-            logger.info("✅ Market calendars loaded (NYSE, LSE)")
-        except Exception as e:
-            logger.warning(f"⚠️ Could not load market calendars: {e}")
+        if MARKET_CALENDARS_AVAILABLE:
+            try:
+                self.nyse = mcal.get_calendar('NYSE')
+                self.lse = mcal.get_calendar('LSE')
+                logger.info("✅ Market calendars loaded (NYSE, LSE)")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not load market calendars: {e}")
+                self.nyse = None
+                self.lse = None
+        else:
             self.nyse = None
             self.lse = None
+            logger.info("⚠️ Using weekend-only checks (market calendars not available)")
         
     def send_telegram_message(self, message: str):
         """Send message via Telegram"""
